@@ -119,25 +119,35 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
   async function connectWallet() {
     try {
       setWalletModalLoading(true);
+
       if (!kitInitialized) {
         StellarWalletsKit.init({ modules: defaultModules() });
         StellarWalletsKit.setNetwork(Networks.TESTNET as any);
         kitInitialized = true;
       }
+
       const { address } = await StellarWalletsKit.authModal();
+
       if (!address) {
         throw new Error('Wallet connection was cancelled.');
       }
-      const module = StellarWalletsKit.selectedModule() as any;
+
+      const module = StellarWalletsKit.selectedModule as any;
       const activeId = module?.id || 'stellar wallet';
+
       setWalletAddress(address);
       setWalletLabel(prettyWalletLabel(activeId));
       setConnected(true);
+
       await refreshBalance(address);
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : 'Wallet connection failed.';
-      alert(message.includes('cancel') ? message : 'Could not open a Stellar wallet. Make sure Freighter, LOBSTR Signer, Rabet, or Albedo is installed and allowed for this site, then try again.');
+      alert(
+        message.includes('cancel')
+          ? message
+          : 'Could not open a Stellar wallet. Make sure Freighter, LOBSTR Signer, Rabet, or Albedo is installed and allowed for this site, then try again.'
+      );
     } finally {
       setWalletModalLoading(false);
     }
@@ -189,6 +199,7 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
 
   async function runPrompt() {
     if (!input.trim()) return;
+
     const userText = input.trim();
     setMessages((prev) => [...prev, { id: uid(), role: 'user', content: userText }]);
     setInput('');
@@ -196,6 +207,7 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
 
     try {
       const txHash = await sendPayment();
+
       const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -205,8 +217,10 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
           txHash
         })
       });
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gemini request failed.');
+
       setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content: data.text }]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong.';
@@ -218,8 +232,10 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
 
   async function runImagePrompt() {
     setLoading(true);
+
     try {
       const txHash = await sendPayment();
+
       const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -229,8 +245,10 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
           txHash
         })
       });
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Image prompt failed.');
+
       setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content: data.text }]);
       setMode('chat');
     } catch (error) {
