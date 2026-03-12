@@ -53,7 +53,9 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
   const [wallets, setWallets] = useState<SupportedWallet[]>([]);
   const [walletModalLoading, setWalletModalLoading] = useState(false);
   const [input, setInput] = useState('');
-  const [imagePrompt, setImagePrompt] = useState('Create a clean abstract Mushee Cloud hero image in white, black, and blue.');
+  const [imagePrompt, setImagePrompt] = useState(
+    'Create a clean abstract Mushee Cloud hero image in white, black, and blue.'
+  );
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -105,6 +107,7 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
     }
 
     setupWalletKit();
+
     return () => {
       cancelled = true;
     };
@@ -158,6 +161,17 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
       throw new Error('Connect a Stellar wallet first.');
     }
 
+    if (walletAddress === treasury) {
+      throw new Error(
+        'Connected wallet cannot be the same as the treasury wallet. Use a separate testnet wallet.'
+      );
+    }
+
+    const amount = Number(links.promptCost);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Invalid prompt cost configuration.');
+    }
+
     const source = await server.loadAccount(walletAddress);
     const tx = new TransactionBuilder(source, {
       fee: '10000',
@@ -167,7 +181,7 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
         Operation.payment({
           destination: treasury,
           asset: nativeAsset,
-          amount: Number(links.promptCost).toFixed(2)
+          amount: amount.toFixed(2)
         })
       )
       .setTimeout(180)
@@ -189,6 +203,7 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
     });
 
     const data = await result.json();
+
     if (!result.ok) {
       throw new Error(data.error || 'Payment failed.');
     }
@@ -219,7 +234,9 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gemini request failed.');
+      if (!response.ok) {
+        throw new Error(data.error || 'Gemini request failed.');
+      }
 
       setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content: data.text }]);
     } catch (error) {
@@ -247,7 +264,9 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Image prompt failed.');
+      if (!response.ok) {
+        throw new Error(data.error || 'Image prompt failed.');
+      }
 
       setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content: data.text }]);
       setMode('chat');
@@ -270,7 +289,9 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
           </div>
         </div>
 
-        <button className="secondary-btn full" onClick={onBack}>Back to landing</button>
+        <button className="secondary-btn full" onClick={onBack}>
+          Back to landing
+        </button>
 
         <div className="menu-list">
           {[
@@ -293,15 +314,33 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
         <section className="side-card">
           <h3>Wallet</h3>
           <p>Stellar ecosystem wallet flow</p>
+
           <div className="wallet-buttons">
-            <button className="primary-btn full blue" onClick={connectWallet} disabled={walletModalLoading}>
-              {walletModalLoading ? 'Opening wallet modal…' : connected ? `Connected: ${walletLabel}` : 'Connect wallet'}
+            <button
+              className="primary-btn full blue"
+              onClick={connectWallet}
+              disabled={walletModalLoading}
+            >
+              {walletModalLoading
+                ? 'Opening wallet modal…'
+                : connected
+                ? `Connected: ${walletLabel}`
+                : 'Connect wallet'}
             </button>
+
             <div className="wallet-option-grid">
               {['freighter', 'lobstr', 'rabet', 'albedo'].map((id) => {
-                const installed = wallets.find((wallet) => wallet.id.toLowerCase() === id)?.available;
+                const installed = wallets.find(
+                  (wallet) => wallet.id.toLowerCase() === id
+                )?.available;
+
                 return (
-                  <button key={id} className="wallet-chip blue-chip" onClick={connectWallet} type="button">
+                  <button
+                    key={id}
+                    className="wallet-chip blue-chip"
+                    onClick={connectWallet}
+                    type="button"
+                  >
                     <span>{prettyWalletLabel(id)}</span>
                     <small>{installed === false ? 'Install first' : 'Open connect'}</small>
                   </button>
@@ -309,15 +348,31 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
               })}
             </div>
           </div>
+
           <div className="wallet-help">
-            The connect modal now supports Stellar wallet choices including Freighter, LOBSTR, Rabet, and Albedo on testnet. Pick any supported wallet there, approve the site, then sign the prompt payment.
+            The connect modal now supports Stellar wallet choices including Freighter, LOBSTR,
+            Rabet, and Albedo on testnet. Pick any supported wallet there, approve the site, then
+            sign the prompt payment.
           </div>
+
           <div className="wallet-info">
-            <div><strong>Connected with:</strong> {walletLabel}</div>
-            <div><strong>Balance:</strong> {balance}</div>
-            <div><strong>Network:</strong> Stellar testnet</div>
-            <div><strong>Settlement:</strong> SHX on mainnet</div>
-            {walletAddress ? <div className="address-line"><strong>Wallet:</strong> {walletAddress}</div> : null}
+            <div>
+              <strong>Connected with:</strong> {walletLabel}
+            </div>
+            <div>
+              <strong>Balance:</strong> {balance}
+            </div>
+            <div>
+              <strong>Network:</strong> Stellar testnet
+            </div>
+            <div>
+              <strong>Settlement:</strong> SHX on mainnet
+            </div>
+            {walletAddress ? (
+              <div className="address-line">
+                <strong>Wallet:</strong> {walletAddress}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -325,7 +380,12 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
           <h3>Claim faucet</h3>
           <p>Testnet balance tools</p>
           <div className="faucet-copy">Claim testnet XLM to explore the prompt flow.</div>
-          <a className="secondary-btn full" href="https://laboratory.stellar.org/#account-creator?network=test" target="_blank" rel="noreferrer">
+          <a
+            className="secondary-btn full"
+            href="https://laboratory.stellar.org/#account-creator?network=test"
+            target="_blank"
+            rel="noreferrer"
+          >
             Claim testnet XLM
           </a>
         </section>
@@ -337,6 +397,7 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
             <div className="muted">Mushee Cloud</div>
             <h1>AI workspace with Stellar-powered prompt payments</h1>
           </div>
+
           <div className="badge-row">
             <span className="soft-badge">UK incorporated</span>
             <span className="soft-badge">XLM testnet live</span>
@@ -348,8 +409,19 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
           <section className="workspace-card">
             <div className="workspace-head">
               <div>
-                <h2>{mode === 'chat' ? 'Chat' : mode === 'image' ? 'Image generation' : mode === 'tasks' ? 'Task runner' : 'Vault'}</h2>
-                <p>Generate copy, explore concepts, create visuals, and test the Stellar-powered payment flow in one premium workspace.</p>
+                <h2>
+                  {mode === 'chat'
+                    ? 'Chat'
+                    : mode === 'image'
+                    ? 'Image generation'
+                    : mode === 'tasks'
+                    ? 'Task runner'
+                    : 'Vault'}
+                </h2>
+                <p>
+                  Generate copy, explore concepts, create visuals, and test the Stellar-powered
+                  payment flow in one premium workspace.
+                </p>
               </div>
               <button className="secondary-btn">New</button>
             </div>
@@ -362,12 +434,14 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
                       <div className={`bubble ${message.role}`}>{message.content}</div>
                     </div>
                   ))}
+
                   {loading ? (
                     <div className="chat-row assistant">
                       <div className="bubble assistant">Thinking…</div>
                     </div>
                   ) : null}
                 </div>
+
                 <div className="composer">
                   <textarea
                     value={input}
@@ -376,7 +450,9 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
                   />
                   <div className="composer-footer">
                     <span>Prompt cost: {links.promptCost} XLM on Stellar testnet</span>
-                    <button className="primary-btn blue" onClick={runPrompt} disabled={loading}>Run prompt</button>
+                    <button className="primary-btn blue" onClick={runPrompt} disabled={loading}>
+                      Run prompt
+                    </button>
                   </div>
                 </div>
               </>
@@ -386,20 +462,40 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
               <div className="image-grid">
                 <div className="image-controls">
                   <label>Image prompt</label>
-                  <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} />
+                  <textarea
+                    value={imagePrompt}
+                    onChange={(e) => setImagePrompt(e.target.value)}
+                  />
                   {[
                     'Create a futuristic blue-white AI cloud visual',
                     'Generate a clean product mockup for Mushee Cloud',
                     'Design an abstract Stellar x AI poster'
                   ].map((item) => (
-                    <button key={item} className="secondary-btn full" onClick={() => setImagePrompt(item)}>{item}</button>
+                    <button
+                      key={item}
+                      className="secondary-btn full"
+                      onClick={() => setImagePrompt(item)}
+                    >
+                      {item}
+                    </button>
                   ))}
-                  <button className="primary-btn full" onClick={runImagePrompt} disabled={loading}>Generate image</button>
+                  <button
+                    className="primary-btn full"
+                    onClick={runImagePrompt}
+                    disabled={loading}
+                  >
+                    Generate image
+                  </button>
                 </div>
+
                 <div className="image-preview">
                   <div className="image-preview-inner">
                     <h3>Image output preview</h3>
-                    <p>Use Gemini image workflows or wire your preferred image generation route here. Results, prompt metadata, and payment receipts can appear in this panel.</p>
+                    <p>
+                      Use Gemini image workflows or wire your preferred image generation route
+                      here. Results, prompt metadata, and payment receipts can appear in this
+                      panel.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -424,7 +520,10 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
             {mode === 'vault' ? (
               <div className="vault-state">
                 <h3>Vault coming soon</h3>
-                <p>Reserve this section for token tools, higher-tier automations, or future premium actions settled with SHX on mainnet.</p>
+                <p>
+                  Reserve this section for token tools, higher-tier automations, or future premium
+                  actions settled with SHX on mainnet.
+                </p>
               </div>
             ) : null}
           </section>
@@ -440,7 +539,10 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
                   'Verify treasury settlement and run Gemini actions.',
                   'Move the same architecture to SHX on Stellar mainnet.'
                 ].map((step, idx) => (
-                  <div className="step" key={step}><span>{idx + 1}</span><p>{step}</p></div>
+                  <div className="step" key={step}>
+                    <span>{idx + 1}</span>
+                    <p>{step}</p>
+                  </div>
                 ))}
               </div>
             </section>
@@ -449,17 +551,35 @@ export default function Dashboard({ onBack, links }: { onBack: () => void; links
               <h3>Project details</h3>
               <p>For ecosystem reviewers</p>
               <div className="wallet-info">
-                <div><strong>Website:</strong> <a href={links.website} target="_blank" rel="noreferrer">mushee.xyz</a></div>
-                <div><strong>Twitter:</strong> <a href={links.twitter} target="_blank" rel="noreferrer">@mushee_io</a></div>
-                <div className="address-line"><strong>Treasury:</strong> {treasury}</div>
-                <div><strong>Model:</strong> Google Gemini</div>
+                <div>
+                  <strong>Website:</strong>{' '}
+                  <a href={links.website} target="_blank" rel="noreferrer">
+                    mushee.xyz
+                  </a>
+                </div>
+                <div>
+                  <strong>Twitter:</strong>{' '}
+                  <a href={links.twitter} target="_blank" rel="noreferrer">
+                    @mushee_io
+                  </a>
+                </div>
+                <div className="address-line">
+                  <strong>Treasury:</strong> {treasury}
+                </div>
+                <div>
+                  <strong>Model:</strong> Google Gemini
+                </div>
               </div>
             </section>
 
             <section className="side-card soft-blue">
               <h3>Security note</h3>
               <p>Before production deployment</p>
-              <div className="wallet-help">Keep Gemini and treasury configuration in environment variables, run payment submission on secure server routes, and move the settlement asset from testnet XLM to SHX on Stellar mainnet.</div>
+              <div className="wallet-help">
+                Keep Gemini and treasury configuration in environment variables, run payment
+                submission on secure server routes, and move the settlement asset from testnet XLM
+                to SHX on Stellar mainnet.
+              </div>
             </section>
           </div>
         </div>
