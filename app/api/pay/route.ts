@@ -1,40 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Horizon, Networks, TransactionBuilder, Operation, Asset } from '@stellar/stellar-sdk';
+import { Horizon, Networks, Transaction } from '@stellar/stellar-sdk';
 
 const server = new Horizon.Server('https://horizon-testnet.stellar.org');
-const nativeAsset = Asset.native();
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const { signedXdr } = await request.json();
-    const treasury = process.env.TREASURY_STELLAR_ADDRESS;
-    const amount = Number(process.env.NEXT_PUBLIC_PROMPT_COST_XLM || '0.01').toFixed(2);
+    const { signedXdr } = await req.json();
 
-    if (!signedXdr || typeof signedXdr !== 'string') {
-      return NextResponse.json({ error: 'Missing signed transaction XDR.' }, { status: 400 });
+    if (!signedXdr) {
+      return NextResponse.json({ error: 'Missing signed transaction.' }, { status: 400 });
     }
 
-    if (!treasury) {
-      return NextResponse.json({ error: 'Missing TREASURY_STELLAR_ADDRESS.' }, { status: 500 });
+    const treasury =
+      process.env.TREASURY_STELLAR_ADDRESS ||
+      'GAQJARPI6MTGTCX6BB7UZLLBQ2DCZCJDI47OHKUEGQBSJCDHTRSQOCY4';
+
+    const requiredAmount = Number(
+      process.env.NEXT_PUBLIC_PROMPT_COST_XLM || '0.01'
+    ).toFixed(2);
+
+    const tx = new Transaction(signedXdr, Networks.TESTNET);
+    const op = tx.operations[0] as any;
+
+    if (
+      !op ||
+      op.type !== 'payment' ||
+      op.destination !== treasury ||
+      op.asset?.isNative?.() !== true ||
+      Number(op.amount).toFixed(2) !== requiredAmount
+    ) {
+      return NextResponse.json(
+        { error: 'Transaction does not match the required testnet XLM payment.' },
+        { status: 400 }
+      );
     }
 
-    const tx = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
-    const payment = tx.operations.find(
-      (operation) =>
-        operation.type === 'payment' &&
-        (operation as any).destination === treasury &&
-        (operation as any).asset.getCode?.() === nativeAsset.getCode() &&
-        (operation as any).amount === amount
-    ) as Operation.Payment | undefined;
+    const submitted = await server.submitTransaction(tx);
 
-    if (!payment) {
-      return NextResponse.json({ error: 'Transaction does not match the required testnet XLM payment.' }, { status: 400 });
-    }
-
-    const result = await server.submitTransaction(tx);
-    return NextResponse.json({ hash: result.hash, successful: result.successful });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Payment submission failed.' }, { status: 500 });
+    return NextResponse.json({
+      ok: true,
+      hash: submitted.hash
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || 'Payment submission failed.' },
+      { status: 500 }
+    );
   }
 }
